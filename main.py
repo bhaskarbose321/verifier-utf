@@ -1,15 +1,21 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Dict, Any, Optional
 from fastapi.exceptions import RequestValidationError
-from typing import Dict, Any
+from fastapi.responses import JSONResponse
 import os
 from verifier import verify_bundle
 
 app = FastAPI(title="Model Bundle Verifier")
 
 
+class VerifyRequest(BaseModel):
+    policy: Optional[Dict[str, Any]] = None
+    files: Optional[Dict[str, str]] = None
+
+
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(request, exc):
     """Handle validation errors and return INVALID_INPUT."""
     return JSONResponse(content={"error": "INVALID_INPUT"}, status_code=400)
 
@@ -21,23 +27,15 @@ def health():
 
 
 @app.post("/verify-bundle")
-async def verify_bundle_endpoint(request: Request):
+def verify_bundle_endpoint(request: VerifyRequest):
     """Verify a model bundle according to the specification."""
-    try:
-        body = await request.json()
-    except Exception:
+    if request.policy is None or request.files is None:
         return JSONResponse(content={"error": "INVALID_INPUT"}, status_code=400)
     
-    if not isinstance(body, dict):
+    if not isinstance(request.policy, dict) or not isinstance(request.files, dict):
         return JSONResponse(content={"error": "INVALID_INPUT"}, status_code=400)
     
-    policy = body.get("policy")
-    files = body.get("files")
-    
-    if not isinstance(policy, dict) or not isinstance(files, dict):
-        return JSONResponse(content={"error": "INVALID_INPUT"}, status_code=400)
-    
-    result = verify_bundle(policy, files)
+    result = verify_bundle(request.policy, request.files)
     
     if "error" in result:
         return JSONResponse(content=result, status_code=400)
