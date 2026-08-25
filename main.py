@@ -1,10 +1,17 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from typing import Dict, Any
 import os
 from verifier import verify_bundle
 
 app = FastAPI(title="Model Bundle Verifier")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors and return INVALID_INPUT."""
+    return JSONResponse(content={"error": "INVALID_INPUT"}, status_code=400)
 
 
 @app.get("/health")
